@@ -25,13 +25,13 @@ CREATE TABLE bitacora_replicacion (
 
     -- que cambio
     tabla_afectada          VARCHAR(30)    NOT NULL,
-    id_registro             VARCHAR(30)    NOT NULL COMMENT 'en factura_extras va factura-extra, ej. 2-4',
+    id_registro             VARCHAR(30)    NOT NULL,
     tipo_operacion          ENUM('INSERT','UPDATE','DELETE') NOT NULL,
-    columnas_modificadas    VARCHAR(1000)  NULL COMMENT 'solo en UPDATE, lista JSON ej. ["estado"]',
+    columnas_modificadas    VARCHAR(1000)  NULL,
 
     -- como estaba antes y como quedo despues
-    datos_anteriores_json   VARCHAR(4000)  NULL COMMENT 'NULL en INSERT',
-    datos_nuevos_json       VARCHAR(4000)  NULL COMMENT 'NULL en DELETE',
+    datos_anteriores_json   VARCHAR(4000)  NULL,
+    datos_nuevos_json       VARCHAR(4000)  NULL,
 
     -- cuando, de donde y quien
     fecha_hora_utc          DATETIME(6)    NOT NULL DEFAULT (UTC_TIMESTAMP(6)),
@@ -52,7 +52,7 @@ CREATE TABLE bitacora_replicacion (
                                            NOT NULL DEFAULT 'PENDIENTE',
     intentos_replicacion    INT            NOT NULL DEFAULT 0,
     proximo_intento         DATETIME(6)    NULL,
-    procesado_por           VARCHAR(100)   NULL COMMENT 'job que agarro el evento',
+    procesado_por           VARCHAR(100)   NULL,
     fecha_aplicacion        DATETIME(6)    NULL,
     mensaje_error           VARCHAR(1000)  NULL,
 
@@ -67,8 +67,7 @@ CREATE TABLE bitacora_replicacion (
     CONSTRAINT ck_bitacora_columnas     CHECK (columnas_modificadas IS NULL OR JSON_VALID(columnas_modificadas)),
     CONSTRAINT ck_bitacora_antes        CHECK (datos_anteriores_json IS NULL OR JSON_VALID(datos_anteriores_json)),
     CONSTRAINT ck_bitacora_despues      CHECK (datos_nuevos_json IS NULL OR JSON_VALID(datos_nuevos_json))
-) ENGINE = InnoDB
-  COMMENT = 'Bitácora de cambios de MySQL que Oracle lee por el link.';
+) ENGINE = InnoDB;
 
 -- indices para que los jobs encuentren rapido lo pendiente
 CREATE INDEX ix_bitacora_estado   ON bitacora_replicacion (estado_replicacion, proximo_intento, orden_evento);
@@ -82,17 +81,16 @@ CREATE INDEX ix_bitacora_job      ON bitacora_replicacion (procesado_por, estado
 -- aqui se anota cada evento que vino de Oracle y ya se aplico en MySQL
 -- si el job se cae a la mitad y lo vuelve a mandar
 CREATE TABLE eventos_aplicados (
-    id_evento               CHAR(36)       NOT NULL COMMENT 'el mismo id_evento de la bitacora de Oracle',
+    id_evento               CHAR(36)       NOT NULL,
     id_transaccion          CHAR(36)       NULL,
     tabla_afectada          VARCHAR(30)    NOT NULL,
     id_registro             VARCHAR(30)    NOT NULL,
     nodo_origen             ENUM('ORACLE','MYSQL') NOT NULL DEFAULT 'ORACLE',
     hash_registro           CHAR(64)       NULL,
     fecha_aplicacion        DATETIME(6)    NOT NULL DEFAULT (UTC_TIMESTAMP(6)),
-    aplicado_por            VARCHAR(100)   NULL COMMENT 'job que lo aplico',
+    aplicado_por            VARCHAR(100)   NULL,
     CONSTRAINT pk_eventos_aplicados PRIMARY KEY (id_evento)
-) ENGINE = InnoDB
-  COMMENT = 'Eventos de Oracle ya aplicados en MySQL (para no duplicar).';
+) ENGINE = InnoDB;
 
 
 -- 3. PERMISOS
@@ -106,7 +104,7 @@ GRANT SELECT, INSERT ON flotamax.eventos_aplicados    TO 'repl_mysql'@'%';
 
 -- 4. REVISION
 -- tienen que salir las 2 tablas
-SELECT table_name, table_comment
+SELECT table_name
 FROM   information_schema.tables
 WHERE  table_schema = 'flotamax'
 AND    table_name IN ('bitacora_replicacion', 'eventos_aplicados');

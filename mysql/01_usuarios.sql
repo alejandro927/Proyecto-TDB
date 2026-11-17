@@ -8,9 +8,6 @@ CREATE DATABASE IF NOT EXISTS flotamax
 -- auto_increment_offset    = 2 -> el primer id es 2
 -- Resultado: 2, 4, 6, 8...
 -- Así los dos motores insertan al mismo tiempo sin chocar
---
--- SET PERSIST guarda el valor aunque se reinicie el servidor y aplica
--- a TODAS las sesiones nuevas
 SET PERSIST auto_increment_increment = 2;
 SET PERSIST auto_increment_offset    = 2;
 
@@ -21,14 +18,13 @@ SET PERSIST time_zone = '+00:00';
 CREATE USER IF NOT EXISTS 'flotamax_app'@'%'
   IDENTIFIED BY 'FlotaMax#2026db';
 
--- 4. Usuario de replicación (el que usa el database link de Oracle)
+-- 4. Usuario de replicacion  y la password (el que usa el database link de Oracle)
 CREATE USER IF NOT EXISTS 'repl_mysql'@'%'
   IDENTIFIED BY 'Repl#MySQL2026'
   REQUIRE SSL;
 
 -- Nota sobre el host '%': permite conectarse desde cualquier IP. Cuando
--- este la IP fija del servidor Oracle se cambia, ej.:
---   RENAME USER 'repl_mysql'@'%' TO 'repl_mysql'@'<<IP_ORACLE>>';
+-- este la IP fija del servidor Oracle se cambia
 
 -- 5. Verificación
 SELECT user, host, ssl_type

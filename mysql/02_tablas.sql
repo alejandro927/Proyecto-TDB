@@ -24,13 +24,12 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- nombre_pais es UNIQUE porque las otras tablas hacen la FK por el nombre
 -- del pais (Honduras) y no por el codigo (HN)
 CREATE TABLE catalogo_pais (
-    codigo_iso   CHAR(2)      NOT NULL COMMENT 'Código ISO de 2 letras, ej. HN',
-    nombre_pais  VARCHAR(50)  NOT NULL COMMENT 'Nombre en español, ej. Honduras',
+    codigo_iso   CHAR(2)      NOT NULL,
+    nombre_pais  VARCHAR(50)  NOT NULL,
     CONSTRAINT pk_catalogo_pais        PRIMARY KEY (codigo_iso),
     CONSTRAINT uq_catalogo_pais_nombre UNIQUE (nombre_pais),
     CONSTRAINT ck_catalogo_pais_iso    CHECK (REGEXP_LIKE(codigo_iso, '^[A-Z]{2}$', 'c'))
-) ENGINE = InnoDB
-  COMMENT = 'Catálogo de países. No se replica.';
+) ENGINE = InnoDB;
 
 -- parametros de replicacion
 -- A.2 parametros_replicacion
@@ -45,19 +44,11 @@ CREATE TABLE parametros_replicacion (
     CONSTRAINT pk_parametros_replicacion PRIMARY KEY (nombre_parametro),
     -- cada parámetro debe tener al menos un valor
     CONSTRAINT ck_parametros_valor CHECK (valor_numerico IS NOT NULL OR valor_texto IS NOT NULL)
-) ENGINE = InnoDB
-  COMMENT = 'Parámetros fijos de la replicación (tasa, ISV, etc.).';
+) ENGINE = InnoDB;
 
 
 
 -- B. TABLAS DE NEGOCIO
--- todas las tablas llevan al final las columnas tecnicas:
---   version_registro      empieza en 1 y sube con cada cambio
---   fecha_ultima_mod_utc  fecha del ultimo cambio en UTC
---   eliminado             para borrar logico (TRUE = borrado)
--- los id son AUTO_INCREMENT y salen pares (2, 4, 6...) por lo que
--- configure en 01_usuarios.sql
-
 -- 1. clientes_flota
 CREATE TABLE clientes_flota (
     cliente_id            INT           NOT NULL AUTO_INCREMENT,
@@ -66,10 +57,10 @@ CREATE TABLE clientes_flota (
     documento             VARCHAR(25)   NOT NULL,
     telefono_contacto     VARCHAR(25)   NULL,
     email                 VARCHAR(120)  NULL,
-    pais                  VARCHAR(50)   NOT NULL COMMENT 'Nombre del país (FK a catalogo_pais)',
+    pais                  VARCHAR(50)   NOT NULL,
     licencia_valida       BOOLEAN       NOT NULL,
-    es_corporativo        BOOLEAN       NOT NULL DEFAULT FALSE COMMENT 'TRUE si el cliente es empresa',
-    fecha_alta            DATETIME      NOT NULL COMMENT 'UTC',
+    es_corporativo        BOOLEAN       NOT NULL DEFAULT FALSE,
+    fecha_alta            DATETIME      NOT NULL,
     -- columnas tecnicas
     version_registro      INT           NOT NULL DEFAULT 1,
     fecha_ultima_mod_utc  DATETIME(6)   NOT NULL DEFAULT (UTC_TIMESTAMP(6)),
@@ -78,15 +69,14 @@ CREATE TABLE clientes_flota (
     CONSTRAINT uq_clientes_flota_documento UNIQUE (tipo_doc, documento),
     CONSTRAINT fk_clientes_flota_pais      FOREIGN KEY (pais) REFERENCES catalogo_pais (nombre_pais),
     CONSTRAINT ck_clientes_flota_version   CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Clientes de FlotaMax.';
+) ENGINE = InnoDB;
 
 -- centros de operacion
 CREATE TABLE centros_operacion (
     centro_id             INT           NOT NULL AUTO_INCREMENT,
     nombre_centro         VARCHAR(120)  NOT NULL,
     municipio             VARCHAR(100)  NOT NULL,
-    pais_operacion        VARCHAR(50)   NOT NULL COMMENT 'Nombre del país (FK a catalogo_pais)',
+    pais_operacion        VARCHAR(50)   NOT NULL,
     categoria             ENUM('Aeropuerto','Urbana','Patio','Taller') NOT NULL,
     capacidad_maxima      INT           NOT NULL,
     -- columnas tecnicas
@@ -97,8 +87,7 @@ CREATE TABLE centros_operacion (
     CONSTRAINT fk_centros_operacion_pais      FOREIGN KEY (pais_operacion) REFERENCES catalogo_pais (nombre_pais),
     CONSTRAINT ck_centros_operacion_capacidad CHECK (capacidad_maxima > 0),
     CONSTRAINT ck_centros_operacion_version   CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Centros de operación de FlotaMax.';
+) ENGINE = InnoDB;
 
 -- tipos de vehiculo
 CREATE TABLE tipos_vehiculo (
@@ -107,7 +96,7 @@ CREATE TABLE tipos_vehiculo (
     linea                 VARCHAR(50)   NOT NULL,
     segmento              ENUM('Económico','Sedán','SUV','Pickup','Van') NOT NULL,
     pasajeros             TINYINT       NOT NULL,
-    tarifa_dia_usd        DECIMAL(10,2) NOT NULL COMMENT 'Tarifa por día en USD',
+    tarifa_dia_usd        DECIMAL(10,2) NOT NULL,
     -- columnas tecnicas
     version_registro      INT           NOT NULL DEFAULT 1,
     fecha_ultima_mod_utc  DATETIME(6)   NOT NULL DEFAULT (UTC_TIMESTAMP(6)),
@@ -117,8 +106,7 @@ CREATE TABLE tipos_vehiculo (
     CONSTRAINT ck_tipos_vehiculo_pasajeros CHECK (pasajeros > 0),
     CONSTRAINT ck_tipos_vehiculo_tarifa    CHECK (tarifa_dia_usd >= 0),
     CONSTRAINT ck_tipos_vehiculo_version   CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Tipos de vehículo de FlotaMax.';
+) ENGINE = InnoDB;
 
 -- 4. unidades (vehículos)
 -- la placa va con formato PCB-1234. Como la base de datos
@@ -127,11 +115,11 @@ CREATE TABLE tipos_vehiculo (
 -- misma expresión pero obliga a que las letras sean MAYÚSCULAS.
 CREATE TABLE unidades (
     unidad_id             INT           NOT NULL AUTO_INCREMENT,
-    placa                 VARCHAR(12)   NOT NULL COMMENT 'Formato PCB-1234',
+    placa                 VARCHAR(12)   NOT NULL,
     vin                   CHAR(17)      NOT NULL,
     tipo_id               INT           NOT NULL,
     anio_fabricacion      YEAR          NOT NULL,
-    odometro_km           INT           NOT NULL COMMENT 'Nunca disminuye',
+    odometro_km           INT           NOT NULL,
     es_automatico         BOOLEAN       NOT NULL,
     estado                ENUM('Disponible','Rentado','Mantenimiento','Retenido','Baja') NOT NULL,
     -- columnas tecnicas
@@ -147,8 +135,7 @@ CREATE TABLE unidades (
     CONSTRAINT ck_unidades_anio     CHECK (anio_fabricacion >= 2000),
     CONSTRAINT ck_unidades_odometro CHECK (odometro_km >= 0),
     CONSTRAINT ck_unidades_version  CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Unidades (vehículos) de FlotaMax.';
+) ENGINE = InnoDB;
 
 -- 5. posicion_flota
 -- donde esta cada unidad ahorita, solo un registro por unidad (UNIQUE)
@@ -157,7 +144,7 @@ CREATE TABLE posicion_flota (
     unidad_id             INT           NOT NULL,
     centro_id             INT           NOT NULL,
     combustible           ENUM('Vacío','1/4','1/2','3/4','Lleno') NOT NULL,
-    fecha_modificacion    DATETIME      NOT NULL COMMENT 'UTC',
+    fecha_modificacion    DATETIME      NOT NULL,
     -- columnas tecnicas
     version_registro      INT           NOT NULL DEFAULT 1,
     fecha_ultima_mod_utc  DATETIME(6)   NOT NULL DEFAULT (UTC_TIMESTAMP(6)),
@@ -167,8 +154,7 @@ CREATE TABLE posicion_flota (
     CONSTRAINT fk_posicion_flota_unidad  FOREIGN KEY (unidad_id) REFERENCES unidades (unidad_id),
     CONSTRAINT fk_posicion_flota_centro  FOREIGN KEY (centro_id) REFERENCES centros_operacion (centro_id),
     CONSTRAINT ck_posicion_flota_version CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Ubicación actual de cada unidad.';
+) ENGINE = InnoDB;
 
 
 -- 6. contratos
@@ -179,10 +165,10 @@ CREATE TABLE contratos (
     unidad_id             INT           NOT NULL,
     centro_salida         INT           NOT NULL,
     centro_retorno        INT           NOT NULL,
-    fecha_salida          DATETIME      NOT NULL COMMENT 'UTC',
-    fecha_retorno         DATETIME      NOT NULL COMMENT 'UTC',
+    fecha_salida          DATETIME      NOT NULL,
+    fecha_retorno         DATETIME      NOT NULL,
     estatus               ENUM('Reservado','En curso','Cerrado','Cancelado') NOT NULL,
-    nivel_prioridad       TINYINT       NOT NULL COMMENT '1 a 5, 5 = alta',
+    nivel_prioridad       TINYINT       NOT NULL,
     -- columnas tecnicas
     version_registro      INT           NOT NULL DEFAULT 1,
     fecha_ultima_mod_utc  DATETIME(6)   NOT NULL DEFAULT (UTC_TIMESTAMP(6)),
@@ -195,8 +181,7 @@ CREATE TABLE contratos (
     CONSTRAINT ck_contratos_fechas     CHECK (fecha_retorno > fecha_salida),
     CONSTRAINT ck_contratos_prioridad  CHECK (nivel_prioridad BETWEEN 1 AND 5),
     CONSTRAINT ck_contratos_version    CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Contratos de FlotaMax. Nunca se eliminan, solo se cancelan.';
+) ENGINE = InnoDB;
 
 -- Índice de apoyo para buscar contratos por unidad y fechas
 CREATE INDEX ix_contratos_unidad_fechas ON contratos (unidad_id, fecha_salida, fecha_retorno);
@@ -206,9 +191,9 @@ CREATE INDEX ix_contratos_unidad_fechas ON contratos (unidad_id, fecha_salida, f
 CREATE TABLE facturas (
     factura_id            INT           NOT NULL AUTO_INCREMENT,
     contrato_id           INT           NOT NULL,
-    fecha                 DATETIME      NOT NULL COMMENT 'UTC',
+    fecha                 DATETIME      NOT NULL,
     subtotal_usd          DECIMAL(12,2) NOT NULL,
-    impuesto_usd          DECIMAL(12,2) NOT NULL COMMENT 'ISV 15 % de las líneas que incluyen impuesto',
+    impuesto_usd          DECIMAL(12,2) NOT NULL,
     monto_total_usd       DECIMAL(12,2) NOT NULL,
     comentarios           TEXT          NULL,
     -- columnas tecnicas
@@ -222,14 +207,13 @@ CREATE TABLE facturas (
     CONSTRAINT ck_facturas_impuesto  CHECK (impuesto_usd >= 0),
     CONSTRAINT ck_facturas_total     CHECK (monto_total_usd = subtotal_usd + impuesto_usd),
     CONSTRAINT ck_facturas_version   CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Facturas en USD. Solo inserción.';
+) ENGINE = InnoDB;
 
 -- 8. extras
 CREATE TABLE extras (
     extra_id              INT           NOT NULL AUTO_INCREMENT,
     detalle               VARCHAR(150)  NOT NULL,
-    costo_dia_usd         DECIMAL(10,2) NOT NULL COMMENT 'Costo por día en USD',
+    costo_dia_usd         DECIMAL(10,2) NOT NULL,
     autorizacion_previa   BOOLEAN       NOT NULL,
     categoria             ENUM('Renta','Seguro','Equipo','Chofer','Entrega') NOT NULL,
     -- columnas tecnicas
@@ -239,8 +223,7 @@ CREATE TABLE extras (
     CONSTRAINT pk_extras          PRIMARY KEY (extra_id),
     CONSTRAINT ck_extras_costo    CHECK (costo_dia_usd >= 0),
     CONSTRAINT ck_extras_version  CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Servicios extra de FlotaMax.';
+) ENGINE = InnoDB;
 
 -- 9. factura_extras  
 -- PK compuesta (factura_id, extra_id). La renta base de la unidad se
@@ -252,7 +235,7 @@ CREATE TABLE factura_extras (
     extra_id              INT           NOT NULL,
     dias                  INT           NOT NULL,
     subtotal_usd          DECIMAL(12,2) NOT NULL,
-    incluye_impuesto      BOOLEAN       NOT NULL COMMENT 'TRUE = se le cobra ISV',
+    incluye_impuesto      BOOLEAN       NOT NULL,
     -- columnas tecnicas
     version_registro      INT           NOT NULL DEFAULT 1,
     fecha_ultima_mod_utc  DATETIME(6)   NOT NULL DEFAULT (UTC_TIMESTAMP(6)),
@@ -263,8 +246,7 @@ CREATE TABLE factura_extras (
     CONSTRAINT ck_factura_extras_dias     CHECK (dias > 0),
     CONSTRAINT ck_factura_extras_subtotal CHECK (subtotal_usd >= 0),
     CONSTRAINT ck_factura_extras_version  CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Líneas de factura en USD. Solo inserción.';
+) ENGINE = InnoDB;
 
 -- 10. movimientos_flota
 -- historial de traslados, nunca se modifica ni se borra
@@ -275,7 +257,7 @@ CREATE TABLE movimientos_flota (
     centro_destino        INT           NOT NULL,
     km_recorridos         INT           NOT NULL,
     motivo                ENUM('Rebalanceo','Mantenimiento','Devolución') NOT NULL,
-    fecha_movimiento      DATETIME      NOT NULL COMMENT 'UTC',
+    fecha_movimiento      DATETIME      NOT NULL,
     -- columnas tecnicas
     version_registro      INT           NOT NULL DEFAULT 1,
     fecha_ultima_mod_utc  DATETIME(6)   NOT NULL DEFAULT (UTC_TIMESTAMP(6)),
@@ -287,8 +269,7 @@ CREATE TABLE movimientos_flota (
     CONSTRAINT ck_movimientos_flota_destino  CHECK (centro_destino <> centro_origen),
     CONSTRAINT ck_movimientos_flota_km       CHECK (km_recorridos > 0),
     CONSTRAINT ck_movimientos_flota_version  CHECK (version_registro >= 1)
-) ENGINE = InnoDB
-  COMMENT = 'Historial de traslados. Solo inserción.';
+) ENGINE = InnoDB;
 
 
 -- C. PERMISOS
@@ -324,13 +305,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON flotamax.contratos         TO 'repl_mysq
 GRANT SELECT, INSERT, UPDATE, DELETE ON flotamax.facturas          TO 'repl_mysql'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON flotamax.extras            TO 'repl_mysql'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE ON flotamax.factura_extras    TO 'repl_mysql'@'%';
--- traslados: solo inserción (nunca se modifican ni se eliminan)
 GRANT SELECT, INSERT                 ON flotamax.movimientos_flota TO 'repl_mysql'@'%';
--- cuando haga la bitacora hay que darle permisos a repl_mysql sobre
--- esas tablas tambien
 
--- revision rapida: tienen que salir 12 tablas
-SELECT table_name, table_rows, table_comment
+-- revision rapida: tienen que salir 12 tablas sin contar las de la bitacora
+SELECT table_name, table_rows
 FROM   information_schema.tables
 WHERE  table_schema = 'flotamax'
 ORDER  BY table_name;

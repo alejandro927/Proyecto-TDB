@@ -5,17 +5,12 @@
 --   base:      flotamax
 --   usuario:   repl_mysql
 --   password:  la de repl_mysql en 01_usuarios.sql
---   SSL:       obligatorio (SSLMODE = REQUIRED)
+--   SSL:       obligatorio 
 
 SET NAMES utf8mb4;
 
 
 -- 1. CONFIGURACION EN LA NUBE
--- LISTO: MySQL 8.0 en la VM de Oracle Cloud (ids pares y hora UTC)
--- LISTO: puerto 3306 abierto solo para la VM de mi companero (20.83.105.69)
--- LISTO: corridos los scripts 01, 02, 03 y 05
--- FALTA: que mi companero pruebe la conexion desde su VM:
---        mysql -h 129.146.55.161 -P 3306 -u repl_mysql -p --ssl-mode=REQUIRED flotamax
 -- dato interesante: si cambia la IP de su VM hay que cambiar la regla en Oracle Cloud
 
 
@@ -65,7 +60,7 @@ SELECT COUNT(*) AS debe_ser_cero FROM centros_operacion WHERE centro_id = 9998;
 ALTER TABLE centros_operacion AUTO_INCREMENT = 1;
 
 
--- 5. SI SALE ERROR
+-- 5. posibles errores de conexion
 -- Access denied            -> password mal o IP no permitida
 -- insecure transport       -> Oracle se conecto sin SSL
 -- Can't connect (timeout)  -> puerto 3306 cerrado o cambio la IP

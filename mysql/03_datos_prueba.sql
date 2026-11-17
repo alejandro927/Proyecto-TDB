@@ -211,33 +211,25 @@ INSERT INTO catalogo_pais (codigo_iso, nombre_pais) VALUES
 ('ZW', 'Zimbabue');
 
 -- parametros (tasa de cambio, ISV, intentos...)
--- el documento solo pide la tasa de cambio aqui, los demas los agregue
--- para tener en un solo lugar los numeros que se usan en la replicacion
--- y no tenerlos escritos a mano en el codigo, si alguno cambia solo se
--- cambia aqui
+-- solo pide la tasa de cambio aqui, pero es mas facil tener todos los parametros en una tabla
 INSERT INTO parametros_replicacion (nombre_parametro, valor_numerico, valor_texto, descripcion) VALUES
-    -- tasa de cambio, esta si la pide el documento (24.80 lempiras por dolar)
+    -- tasa de cambio (24.80 lempiras por dolar)
     ('TASA_HNL_POR_USD', 24.8000, NULL,
      'Lempiras por 1 dólar. HNL->USD divide, USD->HNL multiplica. Redondeo 2 decimales mitad hacia arriba'),
-    -- diferencia de horas: aqui guardamos en UTC y en la otra base se guarda
-    -- en hora de Honduras (UTC-6), entonces al pasar fechas hay que sumar o
-    -- restar 6 horas
+    -- diferencia de horas: aqui guardamos en UTC y en la otra base se guarda en hora de Honduras (UTC-6)
     ('OFFSET_HORAS_UTC', -6, NULL,
      'Oracle guarda hora local UTC-6. Hacia MySQL se suman 6 h, hacia Oracle se restan 6 h'),
     -- el ISV es 15% de las lineas que llevan impuesto, lo uso para calcular
     -- el impuesto de las facturas
     ('PORCENTAJE_ISV', 15, NULL,
      'ISV que se aplica a las líneas de factura con incluye_impuesto = TRUE'),
-    -- el documento dice que despues de 5 intentos fallidos el evento se va
-    -- a la cola de errores (DLQ)
+    -- el documento dice que despues de 5 intentos fallidos el evento se va la cola de errores (DLQ)
     ('MAX_INTENTOS_REPLICACION', 5, NULL,
      'Intentos fallidos antes de mandar el evento a la DLQ'),
-    -- nombre de esta base para la bitacora, ahi se guarda de donde vino
-    -- cada cambio (ORACLE o MYSQL)
+    -- nombre de esta base para la bitacora, ahi se guarda de donde vino cada cambio (ORACLE o MYSQL)
     ('NODO_LOCAL', NULL, 'MYSQL',
      'Nombre de este nodo para el campo nodo_origen de la bitácora'),
-    -- recordatorio de que aqui los id son pares y en la otra base impares
-    -- para que no choquen
+    -- recordatorio de que aqui los id son pares y en la otra base impares para que no choquen
     ('PARIDAD_IDS', 2, 'PAR',
      'MySQL genera ids pares (auto_increment_increment=2, offset=2). Oracle genera impares');
 
@@ -266,8 +258,7 @@ INSERT INTO tipos_vehiculo (fabricante, linea, segmento, pasajeros, tarifa_dia_u
 -- 4. extras (costo en dolares)
 -- la renta base va en 0 porque se cobra con la tarifa del vehiculo
 INSERT INTO extras (detalle, costo_dia_usd, autorizacion_previa, categoria) VALUES
-    ('Renta base de la unidad (tarifa diaria según tipo de vehículo)', 0.00, FALSE, 'Renta'),
-    -- texto largo a proposito para probar
+    ('Renta base de la unidad (tarifa diaria según tipo de vehículo)', 0.00, FALSE, 'Renta'), 
     ('Seguro premium de cobertura total para flotas corporativas, sin deducible, con asistencia vial 24/7 en toda Centroamérica y vehículo sustituto',
                                                                      12.00, FALSE, 'Seguro'),
     ('Wi-Fi portátil 4G',                                             6.50, FALSE, 'Equipo'),
@@ -498,59 +489,3 @@ VALUES ((SELECT unidad_id FROM unidades WHERE placa = 'HBC-3005'),
         25, 'Mantenimiento', '2026-11-08 14:00:00');
 
 COMMIT;
-
-/*
--- 12. No esta este inciso pero quiero revisar de que los parametros que se solicitasn se cumplan todos
-
--- a) cuantas filas tiene cada tabla
-SELECT 'catalogo_pais'          AS tabla, COUNT(*) AS filas FROM catalogo_pais          UNION ALL
-SELECT 'parametros_replicacion',          COUNT(*)          FROM parametros_replicacion UNION ALL
-SELECT 'centros_operacion',               COUNT(*)          FROM centros_operacion      UNION ALL
-SELECT 'tipos_vehiculo',                  COUNT(*)          FROM tipos_vehiculo         UNION ALL
-SELECT 'extras',                          COUNT(*)          FROM extras                 UNION ALL
-SELECT 'clientes_flota',                  COUNT(*)          FROM clientes_flota         UNION ALL
-SELECT 'unidades',                        COUNT(*)          FROM unidades               UNION ALL
-SELECT 'posicion_flota',                  COUNT(*)          FROM posicion_flota         UNION ALL
-SELECT 'contratos',                       COUNT(*)          FROM contratos              UNION ALL
-SELECT 'facturas',                        COUNT(*)          FROM facturas               UNION ALL
-SELECT 'factura_extras',                  COUNT(*)          FROM factura_extras         UNION ALL
-SELECT 'movimientos_flota',               COUNT(*)          FROM movimientos_flota;
-
--- b) los id tienen que salir pares (es_par = 1)
-SELECT cliente_id, nombre_cliente, (cliente_id % 2 = 0) AS es_par
-FROM   clientes_flota
-ORDER  BY cliente_id;
-
--- c) que cada factura cuadre con sus lineas
-SELECT f.factura_id,
-       f.subtotal_usd,
-       SUM(fe.subtotal_usd)                                                          AS suma_lineas,
-       f.impuesto_usd,
-       ROUND(SUM(CASE WHEN fe.incluye_impuesto THEN fe.subtotal_usd ELSE 0 END) * 0.15, 2) AS impuesto_calculado,
-       f.monto_total_usd
-FROM   facturas f
-JOIN   factura_extras fe ON fe.factura_id = f.factura_id
-GROUP  BY f.factura_id, f.subtotal_usd, f.impuesto_usd, f.monto_total_usd
-ORDER  BY f.factura_id;
-
--- d) que ningun centro pase de su capacidad
-SELECT c.nombre_centro, c.capacidad_maxima, COUNT(p.unidad_id) AS unidades_ubicadas
-FROM   centros_operacion c
-LEFT   JOIN posicion_flota p ON p.centro_id = c.centro_id
-GROUP  BY c.centro_id, c.nombre_centro, c.capacidad_maxima
-ORDER  BY c.centro_id;
-
--- e) las rentadas tienen que tener un contrato en curso
-SELECT u.placa, u.estado, COUNT(c.contrato_id) AS contratos_en_curso
-FROM   unidades u
-LEFT   JOIN contratos c ON c.unidad_id = u.unidad_id AND c.estatus = 'En curso'
-GROUP  BY u.unidad_id, u.placa, u.estado
-ORDER  BY u.placa;
-
--- f) fecha en UTC y en hora de Honduras (-6 h)
-SELECT contrato_id, estatus, nivel_prioridad,
-       fecha_salida                       AS salida_utc,
-       fecha_salida - INTERVAL 6 HOUR     AS salida_honduras
-FROM   contratos
-ORDER  BY contrato_id;
-*/
